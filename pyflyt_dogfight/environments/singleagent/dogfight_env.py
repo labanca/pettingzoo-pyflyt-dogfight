@@ -66,7 +66,7 @@ class DogfightEnv:
         self.max_steps = int(agent_hz * max_duration_seconds) if not render else np.inf
         self.env_step_ratio = int(120 / agent_hz)
         self.flight_dome_size = flight_dome_size
-        self.aggressor_filepath = path.join(path.dirname(__file__), "./models")
+        self.aggressor_filepath = path.join(path.dirname(__file__), "../../models")
 
         self.assisted_flight = assisted_flight
         self.damage_per_hit = damage_per_hit

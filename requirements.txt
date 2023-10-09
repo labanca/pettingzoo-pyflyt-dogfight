@@ -1,3 +1,5 @@
 numpy
 wheel
 pyflyt
+pettingzoo
+supersuit

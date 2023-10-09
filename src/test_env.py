@@ -1,8 +1,6 @@
-import time
-
 import numpy as np
 
-from pyflyt_dogfight import DogfightEnv
+from pyflyt_dogfight.environments.singleagent.dogfight_env import DogfightEnv
 
 env = DogfightEnv(render=True)
 
@@ -21,5 +19,7 @@ while not (term or trunc):
     term = term.any()
     trunc = trunc.any()
 
+    if i == 10:
+        pass
 
 print(info)
