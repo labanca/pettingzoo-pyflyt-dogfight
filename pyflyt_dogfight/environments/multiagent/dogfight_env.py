@@ -158,7 +158,6 @@ class DogfightEnv(ParallelEnv):
 
         ## pettingzoo reset learning parameters
         self.agents = self.possible_agents[:]
-        self.health = {agent: np.ones((1)) for agent in self.agents} # PROBABLY WRONG
         self.step_count = 0
         self.termination = {agent: np.zeros((1), dtype=bool) for agent in self.agents}
         self.truncation = {agent: np.zeros((1), dtype=bool) for agent in self.agents}
@@ -189,18 +188,18 @@ class DogfightEnv(ParallelEnv):
         # self.previous_offsets = np.zeros((2))
         # self.previous_distance = np.zeros((2))
 
-        self.in_cone = {"agent": np.zeros((1,), dtype=bool)}
-        self.in_cone = {"agent": np.zeros((1,), dtype=bool)}
-        self.in_range = {"agent": np.zeros((1,), dtype=bool)}
-        self.chasing = {"agent": np.zeros((1,), dtype=bool)}
-        self.current_hits = {"agent": np.zeros((1), dtype=bool)}
-        self.current_angles = {"agent": np.zeros((1))}
-        self.current_offsets = {"agent": np.zeros((1))}
-        self.current_distance = {"agent": np.zeros((1))}
-        self.previous_hits = {"agent": np.zeros((1), dtype=bool)}
-        self.previous_angles = {"agent": np.zeros((1))}
-        self.previous_offsets = {"agent": np.zeros((1))}
-        self.previous_distance = {"agent": np.zeros((1))}
+        self.health = {agent: np.ones((1)) for agent in self.agents} # PROBABLY WRONG
+        self.in_cone = {agent: np.zeros((1,), dtype=bool) for agent in self.agents}
+        self.in_range = {agent: np.zeros((1,), dtype=bool) for agent in self.agents}
+        self.chasing = {agent: np.zeros((1,), dtype=bool) for agent in self.agents}
+        self.current_hits = {agent: np.zeros((1), dtype=bool) for agent in self.agents}
+        self.current_angles = {agent: np.zeros((1)) for agent in self.agents}
+        self.current_offsets = {agent: np.zeros((1)) for agent in self.agents}
+        self.current_distance = {agent: np.zeros((1)) for agent in self.agents}
+        self.previous_hits = {agent: np.zeros((1), dtype=bool) for agent in self.agents}
+        self.previous_angles = {agent: np.zeros((1)) for agent in self.agents}
+        self.previous_offsets = {agent: np.zeros((1)) for agent in self.agents}
+        self.previous_distance = {agent: np.zeros((1)) for agent in self.agents}
 
         # # randomize starting position and orientation
         # # constantly regenerate starting position if they are too close
@@ -316,15 +315,16 @@ class DogfightEnv(ParallelEnv):
         self.step_count += 1
 
         # colour the gunsights conditionally
-        if self.render and not np.all(self.previous_hits == self.current_hits):
-            self.previous_hits = self.current_hits.copy()
-            hit_colour = np.array([1.0, 0.0, 0.0, 0.2])
-            norm_colour = np.array([0.0, 0.0, 0.0, 0.2])
-            for i in range(2):
+        for agent in self.agents:
+            if self.render and not np.all(self.previous_hits == self.current_hits[agent]):
+                self.previous_hits = self.current_hits[agent].copy()
+                hit_colour = np.array([1.0, 0.0, 0.0, 0.2])
+                norm_colour = np.array([0.0, 0.0, 0.0, 0.2])
+
                 self.env.changeVisualShape(
-                    self.env.drones[i].Id,
+                    self.env.drones[self.agent_mapping[agent]].Id,
                     7,
-                    rgbaColor=(hit_colour if self.current_hits[i] else norm_colour),
+                    rgbaColor=(hit_colour if self.current_hits[agent] else norm_colour),
                 )
 
         return self.state, self.reward, self.termination, self.truncation, self.info
@@ -358,12 +358,14 @@ class DogfightEnv(ParallelEnv):
         )
 
         # whether we're lethal or chasing or have opponent in cone
-        self.in_cone = self.current_angles < self.lethal_angle
-        self.in_range = self.current_distance < self.lethal_distance
-        self.chasing = np.abs(self.current_angles) < (np.pi / 2.0)
+        for agent in self.agents:
+            self.in_cone[agent] = self.current_angles[agent] < self.lethal_angle[agent]
+            self.in_range[agent] = self.current_distance < self.lethal_distance
+            self.chasing[agent] = np.abs(self.current_angles) < (np.pi / 2.0)
 
         # compute whether anyone hit anyone
-        self.current_hits = self.in_cone & self.in_range & self.chasing
+        for agent in self.agents:
+            self.current_hits[agent] = self.in_cone[self.agent_mapping[agent]] & self.in_range & self.chasing[self.agent_mapping[agent]]
 
         # update health based on hits
         for agent in self.agents:
