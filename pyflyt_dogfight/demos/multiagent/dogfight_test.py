@@ -1,4 +1,4 @@
-from pyflyt_dogfight.environments.multiagent.dogfight_env import DogfightEnv
+from pyflyt_dogfight.environments.multiagent.dogfight_env2 import DogfightEnv
 
 env = DogfightEnv()
 observations, infos = env.reset()
