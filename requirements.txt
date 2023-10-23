@@ -1,5 +1,7 @@
-numpy
+NumPy==1.24
 wheel
 pyflyt
 pettingzoo
 supersuit
+matplotlib
+stable_baselines3[extra]>=2.0.0a9

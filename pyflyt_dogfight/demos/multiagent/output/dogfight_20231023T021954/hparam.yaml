@@ -1,0 +1,4 @@
+Aviary.print_all_bodies: !!python/name:PyFlyt.core.aviary.print_all_bodies ''
+env.action_space: Box([-1. -1. -1.  0.], 1.0, (4,), float64)
+env.angle_representation: null
+env.attitude_space: null

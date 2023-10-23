@@ -5,30 +5,18 @@ import gymnasium
 import numpy as np
 from gymnasium import spaces
 from PyFlyt.core import Aviary
-from pettingzoo import ParallelEnv
-from pettingzoo.utils import parallel_to_aec, wrappers, agent_selector
-
 
 # fix numpy buggy cross
 np_cross = lambda x, y: np.cross(x, y)
 
+from pettingzoo import ParallelEnv
+from pettingzoo.utils import parallel_to_aec, wrappers, agent_selector
 
 
-def env(render_mode=None):
-    """
-    The env function often wraps the environment in wrappers by default.
-    You can find full documentation for these methods
-    elsewhere in the developer documentation.
-    """
-    internal_render_mode = render_mode if render_mode != "ansi" else "human"
-    env = raw_env(render_mode=internal_render_mode)
-    # This wrapper is only for environments which print results to the terminal
-    if render_mode == "ansi":
-        env = wrappers.CaptureStdoutWrapper(env)
-    # this wrapper helps error handling for discrete action spaces
+def env(**kwargs):
+    """Instantiate a PettingoZoo environment."""
+    env = SumoEnvironmentPZ(**kwargs)
     env = wrappers.AssertOutOfBoundsWrapper(env)
-    # Provides a wide vareity of helpful user errors
-    # Strongly recommended
     env = wrappers.OrderEnforcingWrapper(env)
     return env
 
@@ -43,7 +31,7 @@ def raw_env(render_mode=None):
     return env
 
 
-class DogfightEnv(ParallelEnv, gymnasium.Env):
+class DogfightEnv(ParallelEnv):
     """Base Dogfighting Environment for the Aggressor model using custom environment API."""
     metadata = {"render_modes": ["human"], "name": "dogfight_parallel_v0"}
 
@@ -98,7 +86,7 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
 
         # Parallel env stuff
         self.possible_agents = ['lm_' + str(r) for r in range(1,3)]  # 2 is the original dogfight value
-        #self.agents = self.possible_agents[:]
+        self.agents = self.possible_agents[:]
         self.agent_id_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
         self.id_agent_mapping = dict(zip(list(range(len(self.possible_agents))), self.possible_agents ))
         self.render_mode = render
@@ -130,7 +118,7 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
         return spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(2 * self.state_shape + self.action_space(agent).shape[0],),
+            shape=(2 * self.state_shape + self.action_space(self.agents[0]).shape[0],),
         )
 
 
@@ -301,6 +289,16 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
             tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict]:
         """
 
+        if (
+                self.termination[self.agent_selection]
+                or self.truncation[self.agent_selection]
+        ):
+            # handles stepping an agent which is already dead
+            # accepts a None action for the one agent, and moves the agent_selection to
+            # the next dead agent,  or if there are no more dead agents, to the next live agent
+            self._was_dead_step(actions)
+            return
+
 
         if not actions:
             self.agents = []
@@ -423,8 +421,6 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
 
         self.attitudes = attitudes
 
-
-
         # Form the state vector
         for agent in self.agents:
             self.state[agent] = np.concatenate(
@@ -495,12 +491,10 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
             self.info[agent]["wins"] = self.health[agent] <= 0.0
             self.info[agent]["healths"] = self.health
 
-        for agent, death in [
-            (x[0], x[1] or y[1])
-            for x, y in zip(self.termination.items(), self.truncation.items())
-        ]:
-            if death:
-                self.agents.remove(agent)
+        # for agent in self.agents:
+        #     if self.termination[agent] or self.truncation[agent]:
+        #         self.agents.remove(agent)
+        #         self.num_drones -= 1
 
     def render(self) -> np.ndarray:
         return self.env.drones[0].rgbaImg
