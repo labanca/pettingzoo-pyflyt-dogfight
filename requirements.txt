@@ -2,6 +2,8 @@ NumPy==1.24
 wheel
 pyflyt
 pettingzoo
-supersuit
+supersuit>=3.9.0
 matplotlib
 stable_baselines3[extra]>=2.0.0a9
+tensorboard>=2.11.2
+torch>=1.13.1

@@ -8,10 +8,8 @@ from PyFlyt.core import Aviary
 from pettingzoo import ParallelEnv
 from pettingzoo.utils import parallel_to_aec, wrappers, agent_selector
 
-
 # fix numpy buggy cross
 np_cross = lambda x, y: np.cross(x, y)
-
 
 
 def env(render_mode=None):
@@ -86,18 +84,11 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
         self.high = np.ones(4 if assisted_flight else 6)
         self.low = self.high * -1.0
         self.low[-1] = 0.0
-
         self.state_shape = 13  # 12 states + health
-
-        # MUDAR
-        # self.observation_space = spaces.Box(
-        #     low=-np.inf,
-        #     high=np.inf,
-        #     shape=(2 * self.state_shape + self.action_space().shape[0],),
-        # )
 
         # Parallel env stuff
         self.possible_agents = ['lm_' + str(r) for r in range(1,3)]  # 2 is the original dogfight value
+        self.live_agents = self.possible_agents[:]
         #self.agents = self.possible_agents[:]
         self.agent_id_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
         self.id_agent_mapping = dict(zip(list(range(len(self.possible_agents))), self.possible_agents ))
@@ -119,11 +110,9 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
         self.lethal_distance = lethal_distance
         self.lethal_angle = lethal_angle_radians
 
-    # parallel env
     @functools.lru_cache(maxsize=None)
     def action_space(self, agent):
         return spaces.Box(low=self.low, high=self.high, dtype=np.float64)
-
 
     @functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
@@ -146,24 +135,9 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
         if hasattr(self, "env"):
             self.env.disconnect()
 
-        # reset learning parameters
-        # self.step_count = 0
-        # self.termination = np.zeros((2), dtype=bool)
-        # self.truncation = np.zeros((2), dtype=bool)
-        # self.reward = np.zeros((2))
-        # self.state = np.zeros((2, self.observation_space.shape[0]))
-        # self.prev_actions = np.zeros((2, 4))
-        # self.info = {}
-        # self.info["out_of_bounds"] = False
-        # self.info["collision"] = False
-        # self.info["d1_win"] = False
-        # self.info["d2_win"] = False
-        # self.info["healths"] = np.ones((2))
-
-
-
         ## pettingzoo reset learning parameters
         self.agents = self.possible_agents[:]
+        self.live_agents = self.possible_agents[:]
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.reset()
         self.step_count = 0
@@ -182,21 +156,6 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
                 healths=np.ones((2))
             ) for agent in self.agents}
 
-
-        # reset runtime parameters
-        # self.health = np.ones((2))
-        # self.in_cone = np.zeros((2,), dtype=bool)
-        # self.in_range = np.zeros((2,), dtype=bool)
-        # self.chasing = np.zeros((2,), dtype=bool)
-        # self.current_hits = np.zeros((2), dtype=bool)
-        # self.current_angles = np.zeros((2))
-        # self.current_offsets = np.zeros((2))
-        # self.current_distance = np.zeros((2))
-        # self.previous_hits = np.zeros((2), dtype=bool)
-        # self.previous_angles = np.zeros((2))
-        # self.previous_offsets = np.zeros((2))
-        # self.previous_distance = np.zeros((2))
-
         self.health = {agent: np.ones((1)) for agent in self.agents} # PROBABLY WRONG
         self.in_cone = {agent: np.zeros((1,), dtype=bool) for agent in self.agents}
         self.in_range = {agent: np.zeros((1,), dtype=bool) for agent in self.agents}
@@ -210,17 +169,6 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
         self.previous_offsets = {agent: np.zeros((1)) for agent in self.agents}
         self.previous_distance = 0.0 #{agent: np.zeros((1)) for agent in self.agents}
 
-
-        # # randomize starting position and orientation
-        # # constantly regenerate starting position if they are too close
-        # # fix height to 20 meters
-        # start_pos = np.zeros((2, 3))
-        # while np.linalg.norm(start_pos[0] - start_pos[1]) < self.flight_dome_size * 0.2:
-        #     start_pos = (np.random.rand(2, 3) - 0.5) * self.flight_dome_size * 0.5
-        #     start_pos[:, -1] = self.spawn_height
-        # start_orn = (np.random.rand(2, 3) - 0.5) * 2.0 * np.array([1.0, 1.0, 2 * np.pi])
-
-        ## pettingzoo conversion
         # randomize starting position and orientation
         # constantly regenerate starting position if they are too close
         # fix height to 20 meters
@@ -233,26 +181,11 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
         start_orn = {agent: (np.random.rand(3) - 0.5) * 2.0 * np.array([1.0, 1.0, 2 * np.pi]) for agent in
                      self.agents}
 
-        # start_pos = np.array([[0, 0, 5], [5, 5, 10]])
-        # start_orn = np.zeros_like(start_pos)
-        # start_orn[1, -1] = np.pi
-        # start_orn[1, 0] = np.pi / 2
-
         start_vec = dict()
         for agent in self.agents:
             _ , start_vec[agent] = self.compute_rotation_forward(start_orn[agent])
             start_vec[agent] = start_vec[agent] * 10.0
 
-        # define all drone options
-        # drone_options = [dict(), dict()]
-        # for i in range(len(drone_options)):
-        #     drone_options[i]["model_dir"] = self.aggressor_filepath
-        #     drone_options[i]["drone_model"] = "aggressor"
-        #     drone_options[i]["starting_velocity"] = start_vec[i]
-        # drone_options[0]["use_camera"] = self.human_camera or self.to_render
-        # drone_options[0]["camera_resolution"] = np.array([240, 320])
-
-        ## pettingzoo
         # define all drone options
         drone_options = {agent: dict() for agent in self.agents}
 
@@ -282,8 +215,6 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
         self.env.register_all_new_bodies()
         self.env.set_mode(0 if self.assisted_flight else -1)
 
-
-
         # wait for env to stabilize
         for _ in range(3):
             self.env.step()
@@ -301,16 +232,12 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
             tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict]:
         """
 
-
         if not actions:
             self.agents = []
             return {}, {}, {}, {}, {}
 
 
-
-
         # set the actions, reset the reward
-
         self.env.set_all_setpoints(np.array(list(actions.values())))
         self.prev_actions = actions.copy()
         for agent in self.agents:
@@ -328,6 +255,16 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
             self.compute_state()
             self.compute_term_trunc_reward()
 
+            # workaround for the api_parallel test error: "AssertionError: ['lm_1', 'lm_2']! = {'lm_2'}"
+            for agent, death in [
+                (x[0], x[1] or y[1])
+                for x, y in zip(self.termination.items(), self.truncation.items())
+            ]:
+                if death and agent in self.live_agents:
+                    self.agents.remove(agent)
+                    self.live_agents.remove(agent)
+                    self.env.drones.pop(self.env.drones[self.agent_id_mapping[agent]].Id - 1)
+
         # increment step count
         self.step_count += 1
 
@@ -339,7 +276,7 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
                 norm_colour = np.array([0.0, 0.0, 0.0, 0.2])
 
                 self.env.changeVisualShape(
-                    self.env.drones[self.agent_id_mapping[agent]].Id,
+                    self.env.drones[self.agent_id_mapping[agent]].Id, #drones are agents Id + 1
                     7,
                     rgbaColor=(hit_colour if self.current_hits[agent] else norm_colour),
                 )
@@ -363,13 +300,9 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
 
         # Compute engagement angles
         self.previous_angles = self.current_angles.copy()
-        # self.current_angles = np.arccos(
-        #     np.sum(separation * forward_vecs, axis=-1) / self.current_distance
-        # )
         angles = np.arccos(
                  np.sum(separation * forward_vecs, axis=-1) / self.current_distance)
         self.current_angles = dict(zip(self.agents, angles))
-
 
         # Compute engagement offsets
         self.previous_offsets = self.current_offsets.copy()
@@ -415,15 +348,11 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
             np.expand_dims(separation, axis=1) @ rotation
         ).reshape(2, 3)
 
-
         # flatten the attitude and opponent attitude, expand dim of health
         flat_attitude = attitudes.reshape(2, -1)
         flat_opponent_attitude = opponent_attitudes.reshape(2, -1)
-        #health = {agent: np.expand_dims(self.health[agent], axis=-1) for agent in self.agents}
 
         self.attitudes = attitudes
-
-
 
         # Form the state vector
         for agent in self.agents:
@@ -450,14 +379,11 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
         # terminate if out of bounds, no health, or collision
         for i, agent in enumerate(self.agents):
             self.termination[agent] |= out_of_bounds[self.agent_id_mapping[agent]]
-            #self.termination |= self.health[agent] <= 0.0
             self.termination[agent] |= self.health[agent] <= 0.0
             self.termination[agent] |= collisions[self.agent_id_mapping[agent]]
 
             # truncation is just end
             self.truncation[agent] |= self.step_count > self.max_steps
-
-
 
             # reward for closing the distance
             self.reward[agent] += (
@@ -494,13 +420,6 @@ class DogfightEnv(ParallelEnv, gymnasium.Env):
             self.info[agent]["collision"] = collisions[self.agent_id_mapping[agent]]
             self.info[agent]["wins"] = self.health[agent] <= 0.0
             self.info[agent]["healths"] = self.health
-
-        for agent, death in [
-            (x[0], x[1] or y[1])
-            for x, y in zip(self.termination.items(), self.truncation.items())
-        ]:
-            if death:
-                self.agents.remove(agent)
 
     def render(self) -> np.ndarray:
         return self.env.drones[0].rgbaImg
