@@ -423,6 +423,8 @@ class DogfightEnv(ParallelEnv):
             axis=-1,
         )
 
+    def observe(self, agent):
+        return self.state[agent]
 
     def compute_term_trunc_reward(self, agent):
         """compute_term_trunc_reward."""
